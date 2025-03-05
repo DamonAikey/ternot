@@ -1,0 +1,153 @@
+// Terraria-inspired game but different
+// Expanded with player movement, gravity, block breaking, block placing, inventory, crafting, and enemies
+
+const canvas = document.createElement("canvas");
+const ctx = canvas.getContext("2d");
+document.body.appendChild(canvas);
+canvas.width = window.innerWidth;
+canvas.height = window.innerHeight;
+
+document.body.style.margin = "0";
+document.body.style.overflow = "hidden";
+
+const tileSize = 20;
+const worldWidth = 100;
+const worldHeight = 20;
+const gravity = 0.2;
+const jumpPower = -5;
+let world = [];
+
+// Generate terrain
+for (let x = 0; x < worldWidth; x++) {
+    let column = [];
+    let surface = Math.floor(Math.random() * 5) + 10;
+    for (let y = 0; y < worldHeight; y++) {
+        if (y >= surface) {
+            column.push("dirt");
+        } else {
+            column.push("air");
+        }
+    }
+    world.push(column);
+}
+
+// Player
+let player = { x: 50, y: 5, width: tileSize, height: tileSize, dy: 0, grounded: false };
+
+// Inventory
+let inventory = { dirt: 0, stone: 0 };
+let selectedBlock = "dirt";
+
+// Crafting
+function craft(item) {
+    if (item === "stone" && inventory.dirt >= 2) {
+        inventory.dirt -= 2;
+        inventory.stone += 1;
+    }
+}
+
+document.addEventListener("keydown", (e) => {
+    if (e.code === "Digit1") selectedBlock = "dirt";
+    if (e.code === "Digit2") selectedBlock = "stone";
+    if (e.code === "KeyC") craft("stone");
+});
+
+// Enemies
+let enemies = [{ x: 70, y: 10, width: tileSize, height: tileSize, speed: 0.05 }];
+
+function moveEnemies() {
+    enemies.forEach(enemy => {
+        if (enemy.x > player.x) enemy.x -= enemy.speed;
+        if (enemy.x < player.x) enemy.x += enemy.speed;
+    });
+}
+
+// Physics
+function applyPhysics() {
+    player.dy += gravity;
+    player.y += player.dy;
+    
+    if (player.y >= worldHeight - 1) {
+        player.y = worldHeight - 1;
+        player.dy = 0;
+        player.grounded = true;
+    } else {
+        player.grounded = false;
+    }
+    
+    if (keys["Space"] && player.grounded) {
+        player.dy = jumpPower;
+    }
+    
+    if (keys["ArrowLeft"]) {
+        player.x -= 0.2;
+    }
+    if (keys["ArrowRight"]) {
+        player.x += 0.2;
+    }
+}
+
+// Block breaking
+canvas.addEventListener("click", (e) => {
+    let tileX = Math.floor(e.clientX / tileSize);
+    let tileY = Math.floor(e.clientY / tileSize);
+    if (tileX >= 0 && tileX < worldWidth && tileY >= 0 && tileY < worldHeight) {
+        if (world[tileX][tileY] !== "air") {
+            inventory[world[tileX][tileY]] = (inventory[world[tileX][tileY]] || 0) + 1;
+            world[tileX][tileY] = "air";
+        }
+    }
+});
+
+// Block placing
+canvas.addEventListener("contextmenu", (e) => {
+    e.preventDefault();
+    let tileX = Math.floor(e.clientX / tileSize);
+    let tileY = Math.floor(e.clientY / tileSize);
+    if (tileX >= 0 && tileX < worldWidth && tileY >= 0 && tileY < worldHeight) {
+        if (world[tileX][tileY] === "air" && inventory[selectedBlock] > 0) {
+            world[tileX][tileY] = selectedBlock;
+            inventory[selectedBlock]--;
+        }
+    }
+});
+
+// Render
+function draw() {
+    ctx.clearRect(0, 0, canvas.width, canvas.height);
+    for (let x = 0; x < worldWidth; x++) {
+        for (let y = 0; y < worldHeight; y++) {
+            if (world[x][y] === "dirt") {
+                ctx.fillStyle = "brown";
+                ctx.fillRect(x * tileSize, y * tileSize, tileSize, tileSize);
+            } else if (world[x][y] === "stone") {
+                ctx.fillStyle = "gray";
+                ctx.fillRect(x * tileSize, y * tileSize, tileSize, tileSize);
+            }
+        }
+    }
+    
+    // Draw player
+    ctx.fillStyle = "blue";
+    ctx.fillRect(player.x * tileSize, player.y * tileSize, player.width, player.height);
+    
+    // Draw enemies
+    ctx.fillStyle = "red";
+    enemies.forEach(enemy => {
+        ctx.fillRect(enemy.x * tileSize, enemy.y * tileSize, enemy.width, enemy.height);
+    });
+    
+    // Draw inventory
+    ctx.fillStyle = "white";
+    ctx.font = "16px Arial";
+    ctx.fillText(`Dirt: ${inventory.dirt} | Stone: ${inventory.stone}`, 10, 20);
+}
+
+// Game loop
+function update() {
+    applyPhysics();
+    moveEnemies();
+    draw();
+    requestAnimationFrame(update);
+}
+update();
